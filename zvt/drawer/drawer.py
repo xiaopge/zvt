@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+from typing import List
 
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+
 from zvt import zvt_env
 from zvt.contract.api import decode_entity_id
 from zvt.contract.normal_data import NormalData
@@ -17,31 +19,34 @@ from zvt.utils.time_utils import now_time_str, TIME_FORMAT_ISO8601
 class Drawer(object):
     def __init__(self,
                  main_df: pd.DataFrame = None,
-                 factor_df: pd.DataFrame = None,
+                 factor_df_list: List[pd.DataFrame] = None,
                  sub_df: pd.DataFrame = None,
                  main_data: NormalData = None,
-                 factor_data: NormalData = None,
+                 factor_data_list: List[NormalData] = None,
                  sub_data: NormalData = None,
                  annotation_df: pd.DataFrame = None) -> None:
         """
 
         :param main_df: df for main chart
-        :param factor_df: factor df on main chart
+        :param factor_df_list: list of factor df on main chart
         :param sub_df: df for sub chart under main chart
         :param main_data: NormalData wrap main_df,use either
-        :param factor_data: NormalData wrap factor_df,use either
+        :param factor_data_list: list of NormalData wrap factor_df,use either
         :param sub_data: NormalData wrap sub_df,use either
         :param annotation_df:
         """
+
         # 主图数据
         if main_data is None:
             main_data = NormalData(main_df)
         self.main_data: NormalData = main_data
 
         # 主图因子
-        if factor_data is None:
-            factor_data = NormalData(factor_df)
-        self.factor_data: NormalData = factor_data
+        if not factor_data_list and factor_df_list:
+            factor_data_list = []
+            for df in factor_df_list:
+                factor_data_list.append(NormalData(df))
+        self.factor_data_list: NormalData = factor_data_list
 
         # 副图数据
         if sub_data is None:
@@ -78,6 +83,7 @@ class Drawer(object):
             except Exception:
                 pass
 
+            # 绘制主图
             if main_chart == 'kline':
                 trace_name = '{}_kdata'.format(code)
                 trace = go.Candlestick(x=df.index, open=df['open'], close=df['close'], low=df['low'], high=df['high'],
@@ -89,18 +95,20 @@ class Drawer(object):
                     ydata = df[col].values.tolist()
                     traces.append(go.Scatter(x=df.index, y=ydata, mode=mode, name=trace_name, **kwargs))
 
-            # 绘制指标
-            factor_df = self.factor_data.entity_map_df.get(entity_id)
-            if pd_is_not_null(factor_df):
-                for col in factor_df.columns:
-                    trace_name = '{}_{}'.format(code, col)
-                    ydata = factor_df[col].values.tolist()
+            # 绘制主图指标
+            if self.factor_data_list:
+                for factor_data in self.factor_data_list:
+                    factor_df = factor_data.entity_map_df.get(entity_id)
+                    if pd_is_not_null(factor_df):
+                        for col in factor_df.columns:
+                            trace_name = '{}_{}'.format(code, col)
+                            ydata = factor_df[col].values.tolist()
 
-                    line = go.Scatter(x=df.index, y=ydata, mode=mode, name=trace_name, **kwargs)
-                    traces.append(line)
+                            line = go.Scatter(x=factor_df.index, y=ydata, mode=mode, name=trace_name, **kwargs)
+                            traces.append(line)
 
+            # 绘制幅图
             if subplot:
-                # 绘制幅图
                 sub_df = self.sub_data.entity_map_df.get(entity_id)
                 if pd_is_not_null(sub_df):
                     for col in sub_df.columns:
@@ -129,8 +137,8 @@ class Drawer(object):
         else:
             fig.add_traces(traces)
 
-        fig.update_layout(self.gen_plotly_layout(width=width, height=height, title=title, keep_ui_state=keep_ui_state,
-                                                 subplot=subplot))
+        fig.layout = self.gen_plotly_layout(width=width, height=height, title=title, keep_ui_state=keep_ui_state,
+                                            subplot=subplot)
 
         if show:
             fig.show()
@@ -170,7 +178,7 @@ class Drawer(object):
 
         fig = go.Figure()
         fig.add_traces([data])
-        fig.update_layout(self.gen_plotly_layout(width=width, height=height, title=title, keep_ui_state=keep_ui_state))
+        fig.layout = self.gen_plotly_layout(width=width, height=height, title=title, keep_ui_state=keep_ui_state)
 
         fig.show()
 
@@ -187,6 +195,10 @@ class Drawer(object):
             uirevision = None
 
         layout = go.Layout(showlegend=True,
+                           plot_bgcolor="#FFF",
+                           hovermode="x",
+                           hoverdistance=100,  # Distance to show hover label of data point
+                           spikedistance=1000,  # Distance to show spike
                            uirevision=uirevision,
                            height=height,
                            width=width,
@@ -195,7 +207,19 @@ class Drawer(object):
                            yaxis=dict(
                                autorange=True,
                                fixedrange=False,
-                               zeroline=False
+                               zeroline=False,
+                               linecolor="#BCCCDC",
+                               showgrid=False
+                           ),
+                           xaxis=dict(
+                               linecolor="#BCCCDC",
+                               showgrid=False,
+                               showspikes=True,  # Show spike line for X-axis
+                               # Format spike
+                               spikethickness=2,
+                               spikedash="dot",
+                               spikecolor="#999999",
+                               spikemode="across",
                            ),
                            legend_orientation="h",
                            **layout_params)
@@ -269,6 +293,6 @@ if __name__ == '__main__':
 
     data_reader2.data_df['slope'] = 100 * data_reader2.data_df['current_pct'] / data_reader2.data_df['current_count']
 
-    drawer = Drawer(main_df=data_reader1.data_df, factor_df=data_reader2.data_df[['ma5', 'ma10']],
+    drawer = Drawer(main_df=data_reader1.data_df, factor_df_list=[data_reader2.data_df[['ma5', 'ma10']]],
                     sub_df=data_reader2.data_df[['slope']])
     drawer.draw_kline()

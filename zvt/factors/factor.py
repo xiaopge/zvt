@@ -5,9 +5,9 @@ import time
 from typing import List, Union
 
 import pandas as pd
+
 from zvt.contract import IntervalLevel, Mixin, EntityMixin
 from zvt.contract.api import get_data, df_to_db
-from zvt.contract.normal_data import NormalData
 from zvt.contract.reader import DataReader, DataListener
 from zvt.domain import Stock
 from zvt.drawer.drawer import Drawer
@@ -44,16 +44,16 @@ class Transformer(Indicator):
             entity_id = input_df.index[0][0]
 
             one_df = input_df.reset_index(level=0, drop=True)
-            df = self.transform_one(one_df=one_df)
+            df = self.transform_one(entity_id=entity_id, df=one_df)
             df['entity_id'] = entity_id
 
             return df.set_index('entity_id', append=True).swaplevel(0, 1)
         else:
-            return g.apply(lambda x: self.transform_one(x.reset_index(level=0, drop=True)))
+            return g.apply(lambda x: self.transform_one(x.index[0][0], x.reset_index(level=0, drop=True)))
 
-    def transform_one(self, one_df: pd.DataFrame) -> pd.DataFrame:
+    def transform_one(self, entity_id, df: pd.DataFrame) -> pd.DataFrame:
         """
-        the one_df is df with index(timestamp):
+        df with index(timestamp):
 
                      col1    col2    col3    ...
         timestamp
@@ -62,10 +62,10 @@ class Transformer(Indicator):
 
         the return result would change the columns and  keep the format
 
-        :param one_df:
+        :param df:
         :return:
         """
-        return one_df
+        return df
 
 
 class Accumulator(Indicator):
@@ -250,11 +250,11 @@ class Factor(DataReader, DataListener):
         self.logger.info('<<<<<<')
 
     def factor_drawer(self) -> Drawer:
-        drawer = Drawer(NormalData(df=self.factor_df))
+        drawer = Drawer(self.factor_df)
         return drawer
 
     def result_drawer(self) -> Drawer:
-        return Drawer(NormalData(df=self.result_df))
+        return Drawer(self.result_df)
 
     def draw_factor(self, chart='line', plotly_layout=None, annotation_df=None, render='html', file_name=None,
                     width=None, height=None,
@@ -349,5 +349,8 @@ class StateFactor(Factor):
 
     def get_long_state(self):
         pass
+
+
 # the __all__ is generated
-__all__ = ['Indicator', 'Transformer', 'Accumulator', 'Scorer', 'FactorType', 'Factor', 'FilterFactor', 'ScoreFactor', 'StateFactor']
+__all__ = ['Indicator', 'Transformer', 'Accumulator', 'Scorer', 'FactorType', 'Factor', 'FilterFactor', 'ScoreFactor',
+           'StateFactor']

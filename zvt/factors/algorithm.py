@@ -70,7 +70,13 @@ class MaTransformer(Transformer):
         return input_df
 
 
-def point_in_range(point, range):
+def point_in_range(point: float, range):
+    """
+
+    :param point: one point
+    :param range: (start,end)
+    :return:
+    """
     return range[0] <= point <= range[1]
 
 
@@ -82,6 +88,13 @@ def intersect_ranges(range_list):
 
 
 def intersect(range_a, range_b):
+    """
+    range_a and range_b with format (start,end) in y axis
+
+    :param range_a:
+    :param range_b:
+    :return:
+    """
     if not range_a or not range_b:
         return None
     # 包含
@@ -184,9 +197,9 @@ class MacdTransformer(Transformer):
     #     input_df = pd.concat([input_df, macd_df], axis=1, sort=False)
     #     return input_df
 
-    def transform_one(self, one_df: pd.DataFrame) -> pd.DataFrame:
-        print(f'transform_one {one_df}')
-        return macd(one_df['close'], slow=self.slow, fast=self.fast, n=self.n, return_type='df', normal=self.normal)
+    def transform_one(self, entity_id, df: pd.DataFrame) -> pd.DataFrame:
+        print(f'transform_one {entity_id} {df}')
+        return macd(df['close'], slow=self.slow, fast=self.fast, n=self.n, return_type='df', normal=self.normal)
 
 
 class RankScorer(Scorer):
@@ -290,5 +303,9 @@ def consecutive_count(input_df, col, pattern=[-5, 1]):
             input_df.loc[index, 'count'] = count
 
         print(f'consecutive_count for {entity_id}')
+
+
 # the __all__ is generated
-__all__ = ['ma', 'ema', 'macd', 'MaTransformer', 'point_in_range', 'intersect_ranges', 'intersect', 'IntersectTransformer', 'MaAndVolumeTransformer', 'MacdTransformer', 'RankScorer', 'QuantileScorer', 'consecutive_count']
+__all__ = ['ma', 'ema', 'macd', 'MaTransformer', 'point_in_range', 'intersect_ranges', 'intersect',
+           'IntersectTransformer', 'MaAndVolumeTransformer', 'MacdTransformer', 'RankScorer', 'QuantileScorer',
+           'consecutive_count']
